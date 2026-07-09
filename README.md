@@ -1,6 +1,6 @@
 # Arabic Slug Schema Guard
 
-[![Packagist Version](https://img.shields.io/packagist/v/mantekio/arabic-slug-schema-guard)](https://packagist.org/packages/mantekio/arabic-slug-schema-guard) [![License: GPL v2](https://img.shields.io/badge/License-GPLv2-blue.svg)](LICENSE)
+[![Packagist Version](https://img.shields.io/packagist/v/mantekio/wp-arabic-slug-schema-guard)](https://packagist.org/packages/mantekio/wp-arabic-slug-schema-guard) [![License: GPL v2](https://img.shields.io/badge/License-GPLv2-blue.svg)](LICENSE)
 
 A WordPress **must-use plugin** that stops core updates from silently truncating long Arabic (and other non-Latin) URLs.
 
@@ -29,12 +29,12 @@ This is a must-use plugin, so it loads before the upgrade routine runs and can't
 **Manual**
 ```bash
 mkdir -p wp-content/mu-plugins
-cp arabic-slug-schema-guard.php wp-content/mu-plugins/
+cp wp-arabic-slug-schema-guard.php wp-content/mu-plugins/
 ```
 
 **Composer**
 ```bash
-composer require mantekio/arabic-slug-schema-guard
+composer require mantekio/wp-arabic-slug-schema-guard
 ```
 
 Composer installs it as a [`wordpress-muplugin`](https://github.com/composer/installers), which has two consequences worth knowing:
@@ -43,7 +43,7 @@ Composer installs it as a [`wordpress-muplugin`](https://github.com/composer/ins
   ```json
   { "config": { "allow-plugins": { "composer/installers": true } } }
   ```
-- **Make sure it actually loads.** It installs into `wp-content/mu-plugins/arabic-slug-schema-guard/` (a subfolder). Vanilla WordPress only auto-loads `*.php` placed *directly* in `mu-plugins/`, not in subfolders, so either rely on a mu-plugins autoloader (Bedrock and similar stacks ship one) or use the **Manual** method above to drop the single file straight into `mu-plugins/`.
+- **Make sure it actually loads.** It installs into `wp-content/mu-plugins/wp-arabic-slug-schema-guard/` (a subfolder). Vanilla WordPress only auto-loads `*.php` placed *directly* in `mu-plugins/`, not in subfolders, so either rely on a mu-plugins autoloader (Bedrock and similar stacks ship one) or use the **Manual** method above to drop the single file straight into `mu-plugins/`.
 
 ### One-time: widen the columns
 
@@ -72,6 +72,26 @@ Define before the plugin loads (e.g. in `wp-config.php`), or edit the constants 
 | `ASG_SLUG_BYTES` | `1000` | Max generated slug length, under the column, leaving room for a `-2` collision suffix |
 | `ASG_ALERT_EMAIL` | *(unset)* | If defined, the tripwire (and the Layer-2 self-test) email this address on a column revert or fork drift |
 | `ASG_L2_FAILSAFE` | *(unset)* | If defined truthy, on Layer-2 drift fall back to core's generator (slugs cap at 200) until you re-sync the copy |
+
+### Switching layers off
+
+Each layer is independent and **on by default** (Layer 3 is opt-in). Turn one off with a constant, or with a filter from a theme or plugin that already owns slug generation:
+
+| Switch | Default | Layer |
+|---|---|---|
+| `ASG_LAYER1` | on | Prevention: hold the column at `VARCHAR(1024)` and monitor it |
+| `ASG_LAYER2` | on | Generation: the long-slug `sanitize_title_with_dashes()` fork |
+| `ASG_LAYER3` | off | De-duplication: reserved (handler ships on demand) |
+
+```php
+// wp-config.php: keep the wide column, but let core (or another plugin) make slugs
+define( 'ASG_LAYER2', false );
+
+// or, from a theme/plugin that sanitises titles itself:
+add_filter( 'asg_layer2_enabled', '__return_false' );
+```
+
+**Dependency:** Layers 2 and 3 emit slugs longer than 200 bytes, which only survive because Layer 1 widened the column, so they require Layer 1. Turning Layer 1 off while Layer 2 is requested leaves Layer 2 off (and logs once) rather than truncating. Layer 1 on its own is safe: the column stays wide and core's 200-byte generator stays in place.
 
 ## Verifying
 
