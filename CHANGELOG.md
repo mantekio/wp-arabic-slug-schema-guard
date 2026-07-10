@@ -142,6 +142,20 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Artifacts and trashed rows remain informational.
 - **`--data` now also reports** how many rows it scanned, the generator's measured ceiling,
   and how many trashed slugs it skipped.
+- **The fail-safe was invisible to plain `wp asg verify`.** Its banner lived inside the
+  `--data` block, so the invocation cron actually runs (`wp asg verify || alert`) returned
+  `Schema OK` and exit 0 while Layer 2 capped every new slug at 200 bytes and truncated it
+  silently. An alarm that only sounds when you pass an optional flag is not an alarm, and
+  silent truncation is the one thing this plugin exists to prevent. The fail-safe and
+  **Layer-2 drift** now both fail the default invocation.
+- **`wp asg verify` evaluates the Layer-2 drift oracle itself** instead of trusting the
+  `asg_l2_status` option. The oracle is bound to `admin_init`, so a headless site (WP-CLI,
+  REST, no `wp-admin` visits) never fired it and could never learn its fork had drifted.
+  That is exactly how the fork bug above survived from 1.0.0 to 1.2.0.
+- **Docs:** on MySQL 8 in strict mode the one-time widening `ALTER` fails with
+  `Invalid default value for 'post_date'`, because altering the table re-validates
+  WordPress's legacy zero-date defaults. Clear `sql_mode` for the session, or let the next
+  core upgrade widen the column, since dbDelta-driven widening is unaffected.
 - **Docs:** the `asg_layer{N}_enabled` filters cannot be used from a theme or a
   plugin. They resolve while the mu-plugin loads, and during a database upgrade
   WordPress loads neither, since `wp_get_active_and_valid_plugins()` and

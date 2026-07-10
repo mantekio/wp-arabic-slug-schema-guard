@@ -761,7 +761,7 @@ function asg_scan_slugs( $min_length = 190, $batch = 500 ) {
  *   wp asg verify --data --min-length=190  tune the length gate on the prefix test
  * Exits NON-ZERO on any finding, so a plain `wp asg verify || alert` actually fires. */
 if ( $asg_l1 && defined( 'WP_CLI' ) && WP_CLI ) {
-    WP_CLI::add_command( 'asg verify', function ( $args, $assoc_args ) {
+    WP_CLI::add_command( 'asg verify', function ( $args, $assoc_args ) use ( $asg_l2 ) {
         $failed = false;
 
         foreach ( asg_short_columns() as $row ) {
@@ -772,6 +772,30 @@ if ( $asg_l1 && defined( 'WP_CLI' ) && WP_CLI ) {
         $drift = get_option( 'asg_l1_status' );
         if ( $drift ) {
             WP_CLI::log( "LAYER-1 DRIFT ({$drift}): the canonical-schema rewrite did not apply; core changed its CREATE TABLE string." );
+            $failed = true;
+        }
+
+        /* Layer-2 drift and the fail-safe both mean slugs are being generated wrongly or
+         * silently truncated. They must fail the DEFAULT invocation: cron runs
+         * `wp asg verify || alert`, never `--data`. A fail-safe whose loudness depends on
+         * an optional flag is not loud, which is the failure it exists to prevent. */
+        if ( $asg_l2 ) {
+            // The drift oracle is bound to admin_init, so a headless site (WP-CLI, REST,
+            // no wp-admin visits) never fires it. That is exactly how a drifted fork rode
+            // along for three releases. Evaluate it here rather than trust the option.
+            asg_guard_layer2_drift();
+
+            $l2 = (string) get_option( 'asg_l2_status' );
+            if ( 0 === strpos( $l2, 'drift:' ) ) {
+                WP_CLI::log( "LAYER-2 DRIFT ({$l2}): the slug generator no longer matches core; re-sync the fork." );
+                $failed = true;
+            }
+        }
+
+        if ( get_option( 'asg_l2_failsafe_active' ) ) {
+            WP_CLI::log( 'LAYER 2 FAILED SAFE to core: new slugs cap at 200 bytes and truncate SILENTLY.' );
+            WP_CLI::log( '  They serve HTTP 200 and never reach a log. Re-sync the fork, unset ASG_L2_FAILSAFE,' );
+            WP_CLI::log( '  then audit what has already been cut with: wp asg verify --data' );
             $failed = true;
         }
 
@@ -787,12 +811,6 @@ if ( $asg_l1 && defined( 'WP_CLI' ) && WP_CLI ) {
                 $min,
                 $scan['ceiling']
             ) );
-
-            if ( get_option( 'asg_l2_failsafe_active' ) ) {
-                $failed = true;
-                WP_CLI::log( 'LAYER 2 FAILED SAFE to core: new slugs cap at 200 bytes and truncate silently.' );
-                WP_CLI::log( '  Re-sync the fork and unset ASG_L2_FAILSAFE.' );
-            }
 
             // BLINDNESS. The prefix test needs a generator that can out-run the stored
             // slug. Anchor this to the generator's measured reach, never to the length

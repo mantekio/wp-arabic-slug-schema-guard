@@ -54,6 +54,8 @@ ALTER TABLE wp_posts MODIFY post_name VARCHAR(1024) NOT NULL DEFAULT '';
 ALTER TABLE wp_terms MODIFY slug      VARCHAR(1024) NOT NULL DEFAULT '';
 ```
 
+> ⚠️ **On MySQL 8 in strict mode this `ALTER` fails**, with `Invalid default value for 'post_date'`. Altering the table makes MySQL re-validate WordPress's legacy zero-date column defaults, which strict mode rejects. Clear the mode for the session (`SET SESSION sql_mode = '';`) or fix those defaults first. **dbDelta-driven widening is unaffected**, so on a strict host you can also just let the next core upgrade widen the column for you, losslessly, since Layer 1 rewrites the desired schema.
+
 > ⚠️ **Widen both columns.** Core ships `wp_terms.slug` at `VARCHAR(200)` too, so widening only `post_name` is the most common mistake, and Layer 2 generates slugs for terms as well. On a narrow column MySQL truncates them (in strict mode the insert fails outright). Until the plugin has read the live width, **Layer 2 clamps its budget to what the narrowest column can actually hold**, so a half-widened site degrades to shorter slugs rather than corrupted ones. Widen both anyway.
 >
 > Because Layer 1 rewrites dbDelta's *desired* schema, the **next core upgrade will widen a narrow column for you**, losslessly. So treat the manual `ALTER` as "do it now, because Layer 2 is already generating slugs," not "or it never happens."
@@ -108,7 +110,14 @@ define( 'ASG_LAYER2', false );
 wp asg verify
 ```
 
-It exits **non-zero** when a column is short or when Layer 1 has drifted, so cron can simply react to the exit code:
+It exits **non-zero** on anything that is silently damaging slugs, so cron can simply react to the exit code:
+
+- a **short column**,
+- **Layer-1 drift** (core changed its `CREATE TABLE` string, so the rewrite no longer applies),
+- **Layer-2 drift** (the fork no longer matches core's generator),
+- the **fail-safe engaged** (slugs are capping at 200 bytes and truncating silently).
+
+The last two matter without `--data`, because a fail-safe whose alarm only sounds when you pass an optional flag is not an alarm. `verify` also **evaluates the Layer-2 drift oracle itself** rather than trusting a cached option, since that oracle is otherwise bound to `admin_init` and a headless site (WP-CLI, REST, no `wp-admin` visits) would never run it. That is precisely how a drifted fork can ride along unnoticed for releases at a time.
 
 ```bash
 0 3 * * *  cd /var/www/site && wp asg verify >/dev/null 2>&1 \
