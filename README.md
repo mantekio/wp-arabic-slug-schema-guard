@@ -196,6 +196,10 @@ The full root-cause analysis (the `dbDelta` chain, why the fixed **191-character
 
 **→ [The 200-byte trap: why WordPress core updates break Arabic URLs](https://www.mantek.io/insights/wordpress-arabic-slug-truncation)**
 
+## Changelog
+
+Every release is documented in the [changelog](https://github.com/mantekio/wp-arabic-slug-schema-guard/blob/main/CHANGELOG.md), and the notes for each version are on the [releases page](https://github.com/mantekio/wp-arabic-slug-schema-guard/releases).
+
 ## License
 
 [GPL-2.0-or-later](LICENSE): same as WordPress.
