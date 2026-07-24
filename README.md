@@ -206,4 +206,4 @@ Every release is documented in the [changelog](https://github.com/mantekio/wp-ar
 
 ---
 
-Built and maintained by **[ManTek Technologies](https://www.mantek.io)**: WordPress + AWS at scale, for Arabic newsrooms and beyond.
+Built and maintained by **[ManTek Technologies](https://www.mantek.io)**: WordPress + AWS at scale, for newsrooms and beyond.
