@@ -32,6 +32,13 @@ mkdir -p wp-content/mu-plugins
 cp wp-arabic-slug-schema-guard.php wp-content/mu-plugins/
 ```
 
+WordPress only looks for PHP files right inside the mu-plugins directory, and (unlike for normal plugins) not for files in subdirectories. You may want to create a proxy PHP loader file inside the mu-plugins directory ([WordPress Docs](https://developer.wordpress.org/advanced-administration/plugins/mu-plugins/)):
+
+```php
+<?php // mu-plugins/load.php
+require WPMU_PLUGIN_DIR.'/wp-arabic-slug-schema-guard-1.3.0/wp-arabic-slug-schema-guard.php';
+```
+
 **Composer**
 ```bash
 composer require mantekio/wp-arabic-slug-schema-guard
