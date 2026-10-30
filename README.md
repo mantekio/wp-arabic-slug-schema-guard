@@ -43,7 +43,12 @@ Composer installs it as a [`wordpress-muplugin`](https://github.com/composer/ins
   ```json
   { "config": { "allow-plugins": { "composer/installers": true } } }
   ```
-- **Make sure it actually loads.** It installs into `wp-content/mu-plugins/wp-arabic-slug-schema-guard/` (a subfolder). Vanilla WordPress only auto-loads `*.php` placed *directly* in `mu-plugins/`, not in subfolders, so either rely on a mu-plugins autoloader (Bedrock and similar stacks ship one) or use the **Manual** method above to drop the single file straight into `mu-plugins/`.
+- **Make sure it actually loads.** It installs into `wp-content/mu-plugins/wp-arabic-slug-schema-guard/` (a subfolder), and vanilla WordPress only auto-loads `*.php` placed *directly* in `mu-plugins/`, not in subfolders ([WordPress docs](https://developer.wordpress.org/advanced-administration/plugins/mu-plugins/)). Either rely on a mu-plugins autoloader (Bedrock and similar stacks ship one), use the **Manual** method above instead, or keep Composer and add a one-line loader directly in `mu-plugins/`:
+  ```php
+  <?php // wp-content/mu-plugins/asg-loader.php
+  require WPMU_PLUGIN_DIR . '/wp-arabic-slug-schema-guard/wp-arabic-slug-schema-guard.php';
+  ```
+  Pick one: with the Manual copy and a loader both in place, the plugin loads twice and PHP stops with a fatal error.
 
 ### One-time: widen the columns
 
